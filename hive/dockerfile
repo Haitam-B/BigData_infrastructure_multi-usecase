@@ -1,0 +1,84 @@
+# Use Ubuntu as the base image
+FROM ubuntu:latest
+
+ENV HADOOP_VERSION=3.2.1
+ENV HADOOP_URL=https://archive.apache.org/dist/hadoop/common/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz
+ENV BASE_URL=https://archive.apache.org/dist/spark/
+ENV SPARK_VERSION=3.5.1
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openjdk-8-jdk \
+    bash \
+    netcat-openbsd \
+    curl \
+    wget \
+    gnupg \
+    perl \
+    ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download Hadoop and import GPG key for verification
+RUN set -x \
+    && curl -fSL "$HADOOP_URL" -o /tmp/hadoop.tar.gz \
+    && curl -fSL "$HADOOP_URL.asc" -o /tmp/hadoop.tar.gz.asc \
+    && curl -fSL https://dist.apache.org/repos/dist/release/hadoop/common/KEYS -o /tmp/hadoop-keys \
+    && gpg --import /tmp/hadoop-keys \
+    && gpg --verify /tmp/hadoop.tar.gz.asc \
+    && tar -xvf /tmp/hadoop.tar.gz -C /opt/ \
+    && rm /tmp/hadoop.tar.gz* /tmp/hadoop-keys
+
+RUN ln -s /opt/hadoop-$HADOOP_VERSION/etc/hadoop /etc/hadoop
+
+RUN mkdir /opt/hadoop-$HADOOP_VERSION/logs
+
+RUN mkdir /hadoop-data
+
+ENV SPARK_HOME=${SPARK_HOME:-"/opt/spark"}
+# Download and install Spark
+RUN wget ${BASE_URL}/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz \
+    && tar -xvzf spark-${SPARK_VERSION}-bin-hadoop3.tgz \
+    && mv spark-${SPARK_VERSION}-bin-hadoop3 /opt/spark \
+    && rm spark-${SPARK_VERSION}-bin-hadoop3.tgz
+
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+ENV HADOOP_HOME=/opt/hadoop-$HADOOP_VERSION
+ENV HADOOP_CONF_DIR=/etc/hadoop
+ENV MULTIHOMED_NETWORK=1
+ENV PATH $HADOOP_HOME/bin/:$PATH
+ENV PATH=$SPARK_HOME/sbin:/opt/spark/bin:$PATH
+
+# Install Hive
+ENV HIVE_VERSION=3.1.2
+ENV HIVE_URL=https://archive.apache.org/dist/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz
+
+RUN wget ${HIVE_URL} \
+    && tar -xvzf apache-hive-${HIVE_VERSION}-bin.tar.gz \
+    && mv apache-hive-${HIVE_VERSION}-bin /opt/hive \
+    && rm apache-hive-${HIVE_VERSION}-bin.tar.gz
+
+# Remove conflicting dependencies
+RUN rm /opt/hive/lib/guava-19.0.jar
+RUN rm /opt/hadoop-$HADOOP_VERSION/share/hadoop/common/lib/slf4j-log4j12-1.7.25.jar
+#RUN rm /opt/hadoop-$HADOOP_VERSION/share/hadoop/hdfs/lib/guava-27.0-jre.jar
+
+RUN cp /opt/hadoop-$HADOOP_VERSION/share/hadoop/hdfs/lib/guava-27.0-jre.jar /opt/hive/lib/guava-19.0.jar
+
+# Set up Hive environment variables
+ENV HIVE_HOME=/opt/hive
+ENV PATH=$HIVE_HOME/bin:$PATH
+ENV HIVE_CONF_DIR=$HIVE_HOME/conf
+
+# Add Hive configuration files
+ADD ./hiveMetastore/hive-site.xml $HIVE_HOME/conf/hive-site.xml
+
+# Expose HiveServer2 port
+EXPOSE 10000 10002 9083 8080 7077 9870 9864 8088 8042 22
+
+# Add and set permissions for the entrypoint script
+ADD entrypoint.sh /entrypoint.sh
+RUN chmod a+x /entrypoint.sh
+
+# Set the entrypoint
+ENTRYPOINT ["./entrypoint.sh"]

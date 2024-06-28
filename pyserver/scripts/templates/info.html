@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        table {
+        border-collapse: collapse;
+        width: 100%;
+        }
+
+        th, td {
+        padding: 10px;
+        text-align: left;
+        border: 1px solid #ddd;
+        }
+
+        th {
+        background-color: #f2f2f2;
+        }
+
+        tr:nth-child(even) {
+        background-color: #fafafa;
+        }
+
+    </style>
+    <title>Cluster Info</title>
+</head>
+<body>
+    <h1>Available component in the cluster</h1>
+    
+    <table>
+        <thead>
+        <tr>
+            <th>IP Address</th>
+            <th>Hostname</th>
+            <th>Ports</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>192.168.11.81</td>
+            <td>kafka-cluster</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td>192.168.11.98</td>
+            <td><a target="_blank" href="http://192.168.11.98:9870">hdfs-nameNode</a></td>
+            <td>9870-9000</td>
+        </tr>
+        <tr>
+            <td>192.168.11.95</td>
+            <td><a target="_blank" href="http://192.168.11.95:9864">hdfs-dataNode0</a></td>
+            <td>9864-9866</td>
+        </tr>
+        <tr>
+            <td>192.168.11.96</td>
+            <td><a target="_blank" href="http://192.168.11.96:9864">hdfs-dataNode1</a></td>
+            <td>9864-9866</td>
+        </tr>
+        <tr>
+            <td>192.168.11.99</td>
+            <td><a target="_blank" href="http://192.168.11.99:8288">resource-manager</a></td>
+            <td>8288</td>
+        </tr>
+        <tr>
+            <td>192.168.11.97</td>
+            <td><a target="_blank" href="http://192.168.11.97:8042">node-manager</a></td>
+            <td>8042</td>
+        </tr>
+        <tr>
+            <td>192.168.11.90</td>
+            <td><a target="_blank" href="http://192.168.11.90">HDFS I/O</a></td>
+            <td>80-5000</td>
+        </tr>
+        <tr>
+            <td>192.168.11.101</td>
+            <td><a target="_blank" href="http://192.168.11.101:8080">spark-master</a></td>
+            <td>8080-7077</td>
+        </tr>
+        <tr>
+            <td>192.168.11.102</td>
+            <td><a target="_blank" href="http://192.168.11.102:8080">spark-worker0</a></td>
+            <td>8080</td>
+        </tr>
+        <tr>
+            <td>192.168.11.103</td>
+            <td><a target="_blank" href="http://192.168.11.103:8080">spark-worker1</a></td>
+            <td>8080</td>
+        </tr>
+        <tr>
+            <td>192.168.11.104</td>
+            <td><a target="_blank" href="http://192.168.11.104:8888">JupyterNotebook</a></td>
+            <td>8888</td>
+        </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>

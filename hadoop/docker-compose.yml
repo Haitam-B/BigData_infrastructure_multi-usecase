@@ -1,0 +1,108 @@
+version: "3"
+
+services:
+  master:
+    image: hadoop
+    hostname: master
+    container_name: master
+    restart: always
+    ports:
+      - 9870:9870
+      - 9000:9000
+      - '9090:8080'
+      - '7077:7077'
+      - '9088:8088'
+    volumes:
+      - hadoop_namenode1:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=test
+      - SERVICE_NAME=master
+      - SPARK_WORKLOAD=master
+    env_file:
+      - ./hadoop.env
+
+  slave1:
+    image: hadoop
+    hostname: slave1
+    container_name: slave1
+    restart: always
+    volumes:
+      - hadoop_datanode1:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: master:9870
+      SERVICE_NAME: slave1
+      SPARK_WORKLOAD: worker
+    env_file:
+      - ./hadoop.env
+    ports:
+      - 9864:9864
+
+  slave2:
+    image: hadoop
+    hostname: slave2
+    container_name: slave2
+    restart: always
+    volumes:
+      - hadoop_datanode2:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: master:9870
+      SERVICE_NAME: slave2
+      SPARK_WORKLOAD: worker
+    env_file:
+      - ./hadoop.env
+    ports:
+      - 9865:9864
+
+  slave3:
+    image: hadoop
+    hostname: slave3
+    container_name: slave3
+    restart: always
+    volumes:
+      - hadoop_datanode3:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: master:9870
+      SERVICE_NAME: slave3
+      SPARK_WORKLOAD: worker
+    env_file:
+      - ./hadoop.env
+    ports:
+      - 9866:9864
+
+  slave4:
+    image: hadoop
+    hostname: slave4
+    container_name: slave4
+    restart: always
+    volumes:
+      - hadoop_datanode4:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: master:9870
+      SERVICE_NAME: slave4
+      SPARK_WORKLOAD: worker
+    env_file:
+      - ./hadoop.env
+    ports:
+      - 9867:9864
+
+  historyserver:
+    container_name: historyserver
+    image: hadoop
+    environment:
+      - SERVICE_PRECONDITION=master:9870 master:8088
+      - SERVICE_NAME="historyserver"
+      - SPARK_WORKLOAD=history
+    env_file:
+      - ./hadoop.env
+    ports:
+      - '18080:18080'
+      - '8188:8188'
+
+
+volumes:
+  hadoop_namenode1:
+  hadoop_datanode1:
+  hadoop_datanode2:
+  hadoop_datanode3:
+  hadoop_datanode4:
+  hadoop_historyserver1:

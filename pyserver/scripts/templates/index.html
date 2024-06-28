@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.3/socket.io.js"></script>
+
+    <title>Document</title>
+</head>
+<body>
+
+    <h1>HDFS Web Interface</h1>
+
+    <form action="{{ url_for('create_directory') }}" method="post">
+        <label for="directory_path">Directory Path:</label>
+        <input type="text" id="directory_path" name="directory_path" required>
+        <button type="submit">Create Directory</button>
+    </form>
+
+    <form action="{{ url_for('delete_file') }}" method="post">
+        <label for="file_path_delete">File Path:</label>
+        <input type="text" id="file_path_delete" name="file_path" required>
+        <button type="submit">Delete File</button>
+    </form>
+
+    <form action="{{ url_for('delete_directory') }}" method="post">
+        <label for="directory_path_delete">Directory Path:</label>
+        <input type="text" id="directory_path_delete" name="directory_path" required>
+        <button type="submit">Delete Directory</button>
+    </form>
+    
+    <h2>Upload file to HDFS</h2>
+    <form id="uploadForm" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+        <label for="file_path">HDFS File Path:</label>
+        <input type="text" id="file_path" name="file_path" required>
+        <br>
+        <label for="local_file_path">Local File Path:</label>
+        <input type="text" id="local_file_path" name="local_file_path" required>
+        <br>
+        <label for="file">Choose a file:</label>
+        <input type="file" id="file" name="file" required>
+        <br>
+        <input type="submit" value="Upload">
+    </form>
+    
+    <div id="progress-container" style="display: none;">
+        <p>Upload Progress:</p>
+        <progress id="upload-progress" max="100" value="0"></progress>
+        <span id="progress_p"></span>
+        <p id="status">Status: Uploading...</p>
+        <p id="time_status"></p>
+    </div>
+    
+    <script>
+        $(document).ready(function () {
+            $("#uploadForm").submit(function (e) {
+                e.preventDefault();
+                
+                var formData = new FormData(this);
+                $("#progress-container").show();
+                
+                $.ajax({
+                    type: 'POST',
+                    url: $(this).attr('action'),
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    xhr: function () {
+                        var xhr = new window.XMLHttpRequest();
+                        
+                        // Listen to upload progress events
+                        xhr.upload.addEventListener("progress", function (evt) {
+                            if (evt.lengthComputable) {
+                                var percentComplete = (evt.loaded / evt.total) * 100;
+                                $("#upload-progress").val(percentComplete);
+                                socket.emit('update_progress', {'percentage': percentComplete});
+                            }
+                        }, false);
+                        
+                        return xhr;
+                    },
+                    success: function (response) {
+                        $("#status").text("Status: Upload successful");
+                        $("#time_status").text(JSON.stringify(response));
+                        socket.emit('update_status', {'status': 'Upload successful'});
+                        console.log(response);
+                    },
+                    error: function (error) {
+                        $("#status").text("Status: Upload failed");
+                        console.error(error);
+                        socket.emit('update_status', {'status': 'Upload failed'});
+                    }
+                });
+            });
+            
+            // Listen to progress and status updates from the server
+            var socket = io.connect('http://' + document.domain + ':' + location.port);
+            socket.on('update_progress', function (msg) {
+                $("#upload-progress").val(msg.percentage);
+                $("#progress_p").text(msg.percentage);
+                
+            });
+            socket.on('update_status', function (msg) {
+                alert(msg.status);  // You can replace this with a more user-friendly popup
+            });
+        });
+    </script>
+    
+    </body>
+</html>

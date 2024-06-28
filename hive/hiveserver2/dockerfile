@@ -1,0 +1,33 @@
+# Use Alpine as the base image
+FROM alpine:latest
+
+# Install necessary packages
+RUN apk update && apk add --no-cache \
+    openjdk8-jdk \
+    wget
+
+# Install Hive
+ENV HIVE_VERSION=3.1.2
+ENV HIVE_URL=https://archive.apache.org/dist/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz
+
+RUN wget ${HIVE_URL} \
+    && tar -xvzf apache-hive-${HIVE_VERSION}-bin.tar.gz \
+    && mv apache-hive-${HIVE_VERSION}-bin /opt/hive \
+    && rm apache-hive-${HIVE_VERSION}-bin.tar.gz
+
+# Set up Hive environment variables
+ENV HIVE_HOME=/opt/hive
+ENV PATH=$HIVE_HOME/bin:$PATH
+ENV HIVE_CONF_DIR=$HIVE_HOME/conf
+
+# Add Hive configuration files
+ADD ./hiveMetastore/hive-site.xml $HIVE_HOME/conf/hive-site.xml
+
+# Expose HiveServer2 port
+EXPOSE 10000
+
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

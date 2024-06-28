@@ -1,0 +1,234 @@
+version: "3"
+
+services:
+  master:
+    image: hadoop
+    hostname: master
+    container_name: master
+    restart: always
+    ports:
+      - '9870:9870'
+      - '9999:9000'
+      - '9090:8080'
+      - '7077:7077'
+      - '9088:8088'
+    volumes:
+      - hadoop_namenode1:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=test
+      - SERVICE_NAME=master
+      - SPARK_WORKLOAD=master
+    env_file:
+      - ./hadoop/hadoop.env
+    networks:
+      clusterbridge:
+
+  slave1:
+    image: hadoop
+    hostname: slave1
+    container_name: slave1
+    restart: always
+    volumes:
+      - hadoop_datanode1:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: master:9870
+      SERVICE_NAME: slave1
+      SPARK_WORKLOAD: worker
+    env_file:
+      - ./hadoop/hadoop.env
+    ports:
+      - 9864:9864
+    networks:
+      clusterbridge:
+
+  slave2:
+    image: hadoop
+    hostname: slave2
+    container_name: slave2
+    restart: always
+    volumes:
+      - hadoop_datanode2:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: master:9870
+      SERVICE_NAME: slave2
+      SPARK_WORKLOAD: worker
+    env_file:
+      - ./hadoop/hadoop.env
+    ports:
+      - 9865:9864
+    networks:
+      clusterbridge:
+
+  slave3:
+    image: hadoop
+    hostname: slave3
+    container_name: slave3
+    restart: always
+    volumes:
+      - hadoop_datanode3:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: master:9870
+      SERVICE_NAME: slave3
+      SPARK_WORKLOAD: worker
+    env_file:
+      - ./hadoop/hadoop.env
+    ports:
+      - 9866:9864
+    networks:
+      clusterbridge:
+
+  slave4:
+    image: hadoop
+    hostname: slave4
+    container_name: slave4
+    restart: always
+    volumes:
+      - hadoop_datanode4:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: master:9870
+      SERVICE_NAME: slave4
+      SPARK_WORKLOAD: worker
+    env_file:
+      - ./hadoop/hadoop.env
+    ports:
+      - 9867:9864
+    networks:
+      clusterbridge:
+
+  historyserver:
+    container_name: historyserver
+    image: hadoop
+    environment:
+      - SERVICE_PRECONDITION=master:9870 master:8088
+      - SERVICE_NAME="historyserver"
+      - SPARK_WORKLOAD=history
+    env_file:
+      - ./hadoop/hadoop.env
+    ports:
+      - '18080:18080'
+      - '8188:8188'
+    networks:
+      clusterbridge:
+
+  pyserve:
+    image: pyserve
+    container_name: hdfsui
+    ports:
+      - 80:80
+      - 5000:5000
+    networks:
+      clusterbridge:
+
+  postgres:
+    image: metastore
+    hostname: postgres
+    container_name: postgres
+    ports:
+      - "6432:5432"
+    networks:
+      clusterbridge:
+
+  hive-metastore:
+    image: hive
+    hostname: hive-metastore
+    container_name: hive-metastore
+    environment:
+      - SERVICE_PRECONDITION=postgres:5432
+      - SERVICE_ROLE=metastore
+    ports:
+      - "9083:9083"
+    depends_on:
+      - postgres
+    env_file:
+      - ./hadoop/hadoop.env
+    networks:
+      clusterbridge:
+
+  hive-server:
+    image: hive
+    hostname: hive-server
+    container_name: hive-server
+    environment:
+      - SERVICE_PRECONDITION=hive-metastore:9083
+      - SERVICE_ROLE=hiveserver2
+    ports:
+      - "10000:10000"
+    depends_on:
+      - hive-metastore
+    env_file:
+      - ./hadoop/hadoop.env
+    networks:
+      clusterbridge:
+
+  jupyter:
+    container_name: jupyter
+    image: jupyter
+    ports:
+      - "8888:8888" 
+    depends_on:
+      - master
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+      - SPARK_CONF_DIR=/opt/spark/conf
+    networks:
+      clusterbridge:
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - prometheus-data:/prometheus
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=2d'
+    networks:
+      clusterbridge:
+
+  cadvisor:
+    #image: google/cadvisor  
+    image: gcr.io/cadvisor/cadvisor
+    container_name: cadvisor
+    privileged: true  # Required for cAdvisor to access resources
+    ports:
+      - "9081:8080"  # Map container port 8080 (UI) to host port 8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      clusterbridge:
+
+  grafana:
+    image: grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      clusterbridge:
+
+
+volumes:
+  hadoop_namenode1:
+  hadoop_datanode1:
+  hadoop_datanode2:
+  hadoop_datanode3:
+  hadoop_datanode4:
+  hadoop_historyserver1:
+  postgres-data:
+  grafana_data:
+  prometheus-data:
+
+
+networks:
+  clusterbridge:
+      external: true 

@@ -1,0 +1,44 @@
+# Use the official Alpine Linux image as a base
+FROM alpine:latest
+
+# Set environment variables
+ENV POSTGRES_USER=hive
+ENV POSTGRES_PASSWORD=hive
+ENV POSTGRES_DB=metastore
+ENV PGDATA=/var/lib/postgresql/data
+ENV GOSU_VERSION=1.14
+
+# Install necessary packages
+RUN apk update && apk add --no-cache \
+    postgresql16 postgresql16-contrib bash openjdk8-jre curl
+
+# Download and install gosu
+RUN set -eux; \
+    apk add --no-cache --virtual .gosu-deps \
+        dpkg; \
+    curl -o /usr/local/bin/gosu -SL "https://github.com/tianon/gosu/releases/download/${GOSU_VERSION}/gosu-amd64"; \
+    chmod +x /usr/local/bin/gosu; \
+    gosu nobody true; \
+    apk del .gosu-deps
+
+# Initialize PostgreSQL
+RUN mkdir -p /var/lib/postgresql && \
+    chown -R postgres:postgres /var/lib/postgresql && \
+    gosu postgres initdb
+
+# Add the Hive Metastore schema setup script
+ADD init-hive-schema.sh /docker-entrypoint-initdb.d/init-hive-schema.sh
+RUN chmod +x /docker-entrypoint-initdb.d/init-hive-schema.sh
+
+# Copy the PostgreSQL configuration files
+COPY ./postgresql.conf /var/lib/postgresql/data/postgresql.conf
+COPY ./pg_hba.conf /var/lib/postgresql/data/pg_hba.conf
+
+# Expose the PostgreSQL port
+EXPOSE 5432
+
+ADD entrypoint.sh /entrypoint.sh
+RUN chmod a+x /entrypoint.sh
+
+# Set the entrypoint
+ENTRYPOINT ["./entrypoint.sh"]

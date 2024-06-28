@@ -1,0 +1,8 @@
+FROM postgres:9.5.3
+
+COPY ./new_conf/hive-schema-2.3.0.postgres.sql /hive/hive-schema-2.3.0.postgres.sql
+COPY ./new_conf/hive-txn-schema-2.3.0.postgres.sql /hive/hive-txn-schema-2.3.0.postgres.sql
+COPY ./new_conf/upgrade-2.3.0-to-3.0.0.postgres.sql /hive/upgrade-2.3.0-to-3.0.0.postgres.sql
+COPY ./new_conf/upgrade-3.0.0-to-3.1.0.postgres.sql /hive/upgrade-3.0.0-to-3.1.0.postgres.sql
+
+COPY ./new_conf/init-hive-db.sh /docker-entrypoint-initdb.d/init-user-db.sh

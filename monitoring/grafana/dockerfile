@@ -1,0 +1,44 @@
+# Use the official Alpine Linux image as a base
+FROM alpine:latest
+
+# Set environment variables
+ENV GRAFANA_VERSION=9.1.6
+
+# Install required packages
+RUN apk add --no-cache \
+    bash \
+    su-exec \
+    libc6-compat \
+    curl \
+    && apk add --no-cache --virtual .build-deps \
+    openssl \
+    tar \
+    && mkdir -p /usr/share/grafana \
+    && mkdir -p /etc/grafana \
+    && mkdir -p /var/lib/grafana \
+    && curl -sL "https://dl.grafana.com/oss/release/grafana-${GRAFANA_VERSION}.linux-amd64.tar.gz" | tar -xz --strip-components=1 -C /usr/share/grafana \
+    && cp /usr/share/grafana/conf/sample.ini /etc/grafana/grafana.ini \
+    && addgroup -S grafana \
+    && adduser -S -G grafana grafana \
+    && chown -R grafana:grafana /usr/share/grafana \
+    && chown -R grafana:grafana /etc/grafana \
+    && chown -R grafana:grafana /var/lib/grafana \
+    && apk del .build-deps
+
+# Expose Grafana port
+EXPOSE 3000
+
+# Define entrypoint
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+USER grafana
+
+# Set the working directory
+WORKDIR /usr/share/grafana
+
+# Start Grafana
+ENTRYPOINT ["/entrypoint.sh"]
+
+
+#// Dashboard ID : 15282 for decker containers monitoring
