@@ -216,6 +216,294 @@ services:
     networks:
       clusterbridge:
 
+  zookeeper-1:
+    build: ./zookeeper
+    container_name: zookeeper
+    ports:
+      - '32181:32181'
+    environment:
+      - ZOOKEEPER_SERVER_ID=1
+      - ZOOKEEPER_CLIENT_PORT=32181
+      - ZOOKEEPER_TICK_TIME=2000
+    networks:
+      - clusterbridge
+
+  kafka-1:
+    build: ./kafka
+    container_name: kafka-1
+    ports:
+      - '29092:29092'
+      - '9092:9092'
+    depends_on:
+      - zookeeper-1
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper-1:32181
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,INTERNAL://:29092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092,INTERNAL://kafka-1:29092
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=100
+      - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+      - KAFKA_NUM_PARTITIONS=3
+    networks:
+      - clusterbridge
+      - clusternet
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  kafka-2:
+    build: ./kafka
+    container_name: kafka-2
+    ports:
+      - '29093:29092'
+      - '9093:9092'
+    depends_on:
+      - zookeeper-1
+    environment:
+      - KAFKA_BROKER_ID=2
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper-1:32181
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,INTERNAL://:29092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092,INTERNAL://kafka-2:29092
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=100
+      - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+      - KAFKA_NUM_PARTITIONS=3
+    networks:
+      - clusterbridge
+      - clusternet
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  kafka-3:
+    build: ./kafka
+    container_name: kafka-3
+    ports:
+      - '29094:29092'
+      - '9094:9092'
+    depends_on:
+      - zookeeper-1
+    environment:
+      - KAFKA_BROKER_ID=3
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper-1:32181
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,INTERNAL://:29092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-3:9092,INTERNAL://kafka-3:29092
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=100
+      - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+      - KAFKA_NUM_PARTITIONS=3
+    networks:
+      - clusterbridge
+      - clusternet
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  ksqldb:
+    build: ./ksqldb
+    container_name: ksqldb
+    depends_on:
+      - kafka-1
+      - schema-registry
+    ports:
+      - '8088:8088'
+    environment:
+      - KSQL_LISTENERS=http://0.0.0.0:8088
+      - KSQL_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      - KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE=true
+      - KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE=true
+      - KSQL_KSQL_SCHEMA_REGISTRY_URL=http://schema-registry:8070
+      - KSQL_STREAMS_PRODUCER_MAX_BLOCK_MS=9223372036854775807
+      - KSQL_KSQL_CONNECT_URL=http://kafka-connect:8083
+      - KSQL_KSQL_SERVICE_ID=confluent_rmoff_01
+      - KSQL_KSQL_HIDDEN_TOPICS=^_.*$
+    networks:
+      - clusterbridge
+
+  schema-registry:
+    build: ./schema-registry
+    container_name: schema-registry
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    ports:
+      - '8070:8081'
+    environment:
+      - SCHEMA_REGISTRY_HOST_NAME=schema-registry
+      - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+    networks:
+      - clusterbridge
+
+  kafka-connect:
+    build: ./kafka-connect
+    container_name: kafka-connect
+    depends_on:
+      - kafka-1
+      - schema-registry
+    ports:
+      - 8083:8083
+    environment:
+      - CONNECT_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      - CONNECT_REST_ADVERTISED_HOST_NAME=kafka-connect
+      - CONNECT_REST_PORT=8083
+      - CONNECT_GROUP_ID=kafka-connect
+      - CONNECT_CONFIG_STORAGE_TOPIC=_kafka-connect-configs
+      - CONNECT_OFFSET_STORAGE_TOPIC=_kafka-connect-offsets
+      - CONNECT_STATUS_STORAGE_TOPIC=_kafka-connect-status
+      - CONNECT_KEY_CONVERTER=io.confluent.connect.avro.AvroConverter
+      - CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL=http://schema-registry:8070
+      - CONNECT_VALUE_CONVERTER=io.confluent.connect.avro.AvroConverter
+      - CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL=http://schema-registry:8070
+      - CONNECT_LOG4J_ROOT_LOGLEVEL=INFO
+      - CONNECT_LOG4J_LOGGERS=org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR
+      - CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR=1
+      - CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR=1
+      - CONNECT_STATUS_STORAGE_REPLICATION_FACTOR=1
+      - CONNECT_PLUGIN_PATH=/usr/share/java,/usr/share/confluent-hub-components/,/connectors/
+    volumes:
+      - ./connectors:/connectors
+    entrypoint: ["/entrypoints/kafka-connect-entrypoint.sh"]
+    networks:
+      - clusterbridge
+
+  mongo1:
+    build: ./mongodb
+    container_name: mongo1
+    command: ["--replSet", "mongoSet"]
+    ports:
+      - '30001:27017'
+    networks:
+      - clusterbridge
+
+  mongo2:
+    build: ./mongodb
+    container_name: mongo2
+    command: ["--replSet", "mongoSet"]
+    ports:
+      - '30002:27017'
+    networks:
+      - clusterbridge
+
+  mongo3:
+    build: ./mongodb
+    container_name: mongo3
+    command: ["--replSet", "mongoSet"]
+    ports:
+      - '30003:27017'
+    networks:
+      - clusterbridge
+
+  sql-client:
+    build: ./sql-client
+    container_name: sql-client
+    depends_on:
+      - kafka-1
+      - flink-jobmanager
+    environment:
+      - FLINK_JOBMANAGER_HOST=flink-jobmanager
+      - ZOOKEEPER_CONNECT=zookeeper-1
+      - KAFKA_BOOTSTRAP=kafka-1,kafka-2,kafka-3
+      - ES_HOST=elasticsearch
+    networks:
+      - clusterbridge
+
+  flink-jobmanager:
+    build: ./flink/jobmanager
+    container_name: flink-jobmanager
+    ports:
+      - '8081:8081'
+    command: jobmanager
+    environment:
+      - FLINK_PROPERTIES=jobmanager.rpc.address: flink-jobmanager\njobmanager.memory.process.size: 8g
+    networks:
+      - clusterbridge
+
+  flink-taskmanager:
+    build: ./flink/taskmanager
+    container_name: flink-taskmanager
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    environment:
+      - FLINK_PROPERTIES=jobmanager.rpc.address: flink-jobmanager\ntaskmanager.numberOfTaskSlots: 4\nparallelism.default: 2
+    networks:
+      - clusterbridge
+
+  elasticsearch:
+    build: ./elasticsearch
+    container_name: elasticsearch
+    ports:
+      - '9200:9200'
+    environment:
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - discovery.type=single-node
+      - node.store.allow_mmap=false
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+    networks:
+      - clusterbridge
+
+  kibana:
+    build: ./kibana
+    container_name: kibana
+    depends_on:
+      - elasticsearch
+    ports:
+      - '5601:5601'
+    environment:
+      - discovery.type=single-node
+    networks:
+      - clusterbridge
+
+  postgres:
+    build: ./postgres
+    container_name: postgres
+    ports:
+      - '5432:5432'
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - clusterbridge
+
+  cadvisor-2:
+    build: ./cadvisor
+    container_name: cadvisor-2
+    privileged: true
+    ports:
+      - '8087:8080'
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - clusterbridge
+      - clusternet
+
+  redpanda-console:
+    build: ./redpanda-console
+    container_name: redpanda-console
+    ports:
+      - '8055:8080'
+    environment:
+      - KAFKA_BROKERS=kafka-1:9092,kafka-2:9092,kafka-3:9092,kafka-connect:8083
+    networks:
+      - clusterbridge
+      - clusternet
 
 volumes:
   hadoop_namenode1:
@@ -230,5 +518,8 @@ volumes:
 
 
 networks:
+  clusternet:
+    external:
+      name: clusternet
   clusterbridge:
-      external: true 
+    external: true
